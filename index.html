@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Management Dashboard | Professional</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#6366f1',
+            secondary: '#8b5cf6',
+            success: '#10b981',
+            warning: '#f59e0b',
+            danger: '#ef4444',
+            dark: '#0f172a',
+            card: '#1e293b',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .glass { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); }
+    .stat-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.3); }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: #1e293b; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    .pulse-dot { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .fade-in { animation: fadeIn 0.5s ease-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="bg-dark text-slate-100 min-h-screen">
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-dark/90 z-50 flex items-center justify-center">
+    <div class="text-center">
+      <div class="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <p class="text-slate-300 text-lg font-medium">Connecting to Firebase...</p>
+      <p class="text-slate-500 text-sm mt-1">Please wait</p>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 glass border-b border-slate-700/50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/30">
+            <i class="fas fa-users text-white text-lg"></i>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold tracking-tight">User Dashboard</h1>
+            <p class="text-xs text-slate-400">Professional Management Panel</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700">
+            <span class="w-2 h-2 rounded-full bg-success pulse-dot"></span>
+            <span class="text-xs text-slate-300" id="connectionStatus">Live</span>
+          </div>
+          <div class="text-right hidden md:block">
+            <p class="text-xs text-slate-400">Last Updated</p>
+            <p class="text-sm font-medium" id="lastUpdated">—</p>
+          </div>
+          <button onclick="refreshData()" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition" title="Refresh">
+            <i class="fas fa-sync-alt text-slate-300" id="refreshIcon"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8 fade-in">
+      <!-- Total Users -->
+      <div class="stat-card glass rounded-2xl p-6 border border-slate-700/50 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full -mr-8 -mt-8"></div>
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-slate-400 text-sm font-medium">Total Users</p>
+            <h2 class="text-3xl font-bold mt-1" id="totalUsers">0</h2>
+            <p class="text-xs text-slate-500 mt-2"><span id="totalChange">—</span></p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+            <i class="fas fa-users text-primary text-xl"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Normal Users -->
+      <div class="stat-card glass rounded-2xl p-6 border border-slate-700/50 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-24 h-24 bg-slate-500/10 rounded-full -mr-8 -mt-8"></div>
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-slate-400 text-sm font-medium">Normal Users</p>
+            <h2 class="text-3xl font-bold mt-1 text-slate-200" id="normalCount">0</h2>
+            <p class="text-xs text-slate-500 mt-2"><span id="normalPercent">0%</span> of total</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-slate-600/30 flex items-center justify-center">
+            <i class="fas fa-user text-slate-300 text-xl"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verified Users -->
+      <div class="stat-card glass rounded-2xl p-6 border border-slate-700/50 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-24 h-24 bg-success/10 rounded-full -mr-8 -mt-8"></div>
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-slate-400 text-sm font-medium">Verified Users</p>
+            <h2 class="text-3xl font-bold mt-1 text-success" id="verifiedCount">0</h2>
+            <p class="text-xs text-slate-500 mt-2"><span id="verifiedPercent">0%</span> of total</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-success/20 flex items-center justify-center">
+            <i class="fas fa-check-circle text-success text-xl"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- PPN Users -->
+      <div class="stat-card glass rounded-2xl p-6 border border-slate-700/50 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-24 h-24 bg-warning/10 rounded-full -mr-8 -mt-8"></div>
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-slate-400 text-sm font-medium">PPN Users</p>
+            <h2 class="text-3xl font-bold mt-1 text-warning" id="ppnCount">0</h2>
+            <p class="text-xs text-slate-500 mt-2"><span id="ppnPercent">0%</span> of total</p>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-warning/20 flex items-center justify-center">
+            <i class="fas fa-crown text-warning text-xl"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts + Quick Info -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <!-- Pie Chart -->
+      <div class="glass rounded-2xl p-6 border border-slate-700/50 lg:col-span-1">
+        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+          <i class="fas fa-chart-pie text-primary"></i>
+          User Distribution
+        </h3>
+        <div class="relative h-64">
+          <canvas id="pieChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Bar Chart -->
+      <div class="glass rounded-2xl p-6 border border-slate-700/50 lg:col-span-2">
+        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+          <i class="fas fa-chart-bar text-secondary"></i>
+          Users by Type
+        </h3>
+        <div class="relative h-64">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters + Search -->
+    <div class="glass rounded-2xl border border-slate-700/50 mb-6 overflow-hidden">
+      <div class="p-4 sm:p-5 border-b border-slate-700/50 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div class="flex flex-wrap gap-2">
+          <button onclick="setFilter('all')" id="filter-all" class="filter-btn active px-4 py-2 rounded-lg text-sm font-medium transition bg-primary text-white">
+            All <span class="ml-1 opacity-80" id="badge-all">0</span>
+          </button>
+          <button onclick="setFilter('normal')" id="filter-normal" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-slate-800 text-slate-300 hover:bg-slate-700">
+            <i class="fas fa-user mr-1.5"></i> Normal <span class="ml-1 opacity-80" id="badge-normal">0</span>
+          </button>
+          <button onclick="setFilter('verified')" id="filter-verified" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-slate-800 text-slate-300 hover:bg-slate-700">
+            <i class="fas fa-check-circle mr-1.5"></i> Verified <span class="ml-1 opacity-80" id="badge-verified">0</span>
+          </button>
+          <button onclick="setFilter('ppn')" id="filter-ppn" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium transition bg-slate-800 text-slate-300 hover:bg-slate-700">
+            <i class="fas fa-crown mr-1.5"></i> PPN <span class="ml-1 opacity-80" id="badge-ppn">0</span>
+          </button>
+        </div>
+        <div class="relative w-full sm:w-72">
+          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
+          <input type="text" id="searchInput" placeholder="Search by name, email, phone..." 
+                 class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary placeholder-slate-500"
+                 oninput="handleSearch()" />
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="overflow-x-auto scrollbar-thin">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-800/50 text-slate-400 text-left">
+              <th class="px-5 py-3.5 font-medium">#</th>
+              <th class="px-5 py-3.5 font-medium">User</th>
+              <th class="px-5 py-3.5 font-medium">Contact</th>
+              <th class="px-5 py-3.5 font-medium">Type</th>
+              <th class="px-5 py-3.5 font-medium">Status</th>
+              <th class="px-5 py-3.5 font-medium">Joined</th>
+              <th class="px-5 py-3.5 font-medium text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody" class="divide-y divide-slate-700/50">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty / Loading State -->
+      <div id="tableEmpty" class="hidden py-16 text-center">
+        <i class="fas fa-inbox text-4xl text-slate-600 mb-3"></i>
+        <p class="text-slate-400">No users found</p>
+        <p class="text-slate-600 text-sm mt-1">Try changing filter or search term</p>
+      </div>
+
+      <!-- Pagination Info -->
+      <div class="px-5 py-3 border-t border-slate-700/50 flex items-center justify-between text-xs text-slate-500">
+        <span id="showingInfo">Showing 0 users</span>
+        <span id="dataSource">Firebase Realtime Database</span>
+      </div>
+    </div>
+
+    <!-- Footer note -->
+    <p class="text-center text-xs text-slate-600 mt-8">
+      Dashboard connected via Firebase • Data updates in real-time
+    </p>
+  </main>
+
+  <!-- User Detail Modal -->
+  <div id="userModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div class="glass rounded-2xl border border-slate-700 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div class="p-6 border-b border-slate-700 flex items-center justify-between">
+        <h3 class="text-lg font-semibold">User Details</h3>
+        <button onclick="closeModal()" class="p-2 rounded-lg hover:bg-slate-700 transition">
+          <i class="fas fa-times text-slate-400"></i>
+        </button>
+      </div>
+      <div class="p-6" id="modalContent">
+        <!-- Dynamic content -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+    import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+
+    const CONFIG_URL = "https://tmn.sawanenter7209.workers.dev/config";
+    let db;
+    let allUsers = [];
+    let currentFilter = 'all';
+    let searchQuery = '';
+    let pieChart = null;
+    let barChart = null;
+
+    // ====================== FIREBASE INIT ======================
+    async function initFirebase() {
+      try {
+        const res = await fetch(CONFIG_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error("Config request failed");
+        const firebaseConfig = await res.json();
+        const app = initializeApp(firebaseConfig);
+        db = getDatabase(app);
+        startApp();
+      } catch (err) {
+        console.error("Firebase load error:", err);
+        document.getElementById('loadingOverlay').innerHTML = `
+          <div class="text-center p-8">
+            <i class="fas fa-exclamation-triangle text-4xl text-danger mb-4"></i>
+            <p class="text-lg font-medium text-slate-200">Server connection failed ❌</p>
+            <p class="text-slate-400 text-sm mt-2">Check config URL or network</p>
+            <button onclick="location.reload()" class="mt-6 px-5 py-2.5 bg-primary hover:bg-primary/90 rounded-xl text-sm font-medium transition">
+              Retry
+            </button>
+          </div>`;
+      }
+    }
+
+    // ====================== START APP ======================
+    function startApp() {
+      // ⚠️ IMPORTANT: Apne Firebase path ko yahan change karo
+      // Common paths: "users", "Users", "userData", "members" etc.
+      const usersRef = ref(db, 'users');
+
+      onValue(usersRef, (snapshot) => {
+        const data = snapshot.val();
+        processUsers(data);
+        document.getElementById('loadingOverlay').classList.add('hidden');
+        document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('en-IN');
+      }, (error) => {
+        console.error("Database error:", error);
+        document.getElementById('loadingOverlay').innerHTML = `
+          <div class="text-center p-8">
+            <i class="fas fa-database text-4xl text-danger mb-4"></i>
+            <p class="text-lg font-medium">Database read error</p>
+            <p class="text-slate-400 text-sm mt-2">${error.message}</p>
+            <p class="text-slate-500 text-xs mt-4">Path "users" check karo ya rules allow karo</p>
+          </div>`;
+      });
+    }
+
+    // ====================== PROCESS USERS ======================
+    function processUsers(data) {
+      allUsers = [];
+
+      if (!data) {
+        updateUI();
+        return;
+      }
+
+      Object.entries(data).forEach(([uid, user]) => {
+        if (!user || typeof user !== 'object') return;
+
+        // Type detection – aapke field ke hisaab se adjust karo
+        let type = 'normal';
+
+        // Priority: explicit type / status / role field
+        const typeField = (user.type || user.status || user.role || user.userType || user.accountType || '').toString().toLowerCase();
+        
+        if (typeField.includes('ppn') || typeField.includes('premium') || typeField === 'ppn') {
+          type = 'ppn';
+        } else if (
+          typeField.includes('verified') || 
+          typeField === 'verified' ||
+          user.isVerified === true || 
+          user.verified === true ||
+          user.is_verified === true ||
+          user.verificationStatus === 'verified'
+        ) {
+          type = 'verified';
+        } else if (typeField.includes('normal') || typeField === 'normal' || typeField === 'user') {
+          type = 'normal';
+        } else {
+          // Fallback: check boolean flags
+          if (user.isPpn === true || user.ppn === true || user.isPremium === true) {
+            type = 'ppn';
+          } else if (user.isVerified === true || user.verified === true) {
+            type = 'verified';
+          }
+        }
+
+        allUsers.push({
+          uid,
+          name: user.name || user.fullName || user.displayName || user.username || 'Unknown',
+          email: user.email || user.mail || '—',
+          phone: user.phone || user.mobile || user.phoneNumber || '—',
+          type,
+          photo: user.photoURL || user.photo || user.avatar || user.profilePic || null,
+          createdAt: user.createdAt || user.timestamp || user.joinedAt || user.created_at || null,
+          raw: user
+        });
+      });
+
+      // Sort by newest first
+      allUsers.sort((a, b) => {
+        const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return tb - ta;
+      });
+
+      updateUI();
+    }
+
+    // ====================== UPDATE UI ======================
+    function updateUI() {
+      const total = allUsers.length;
+      const normal = allUsers.filter(u => u.type === 'normal').length;
+      const verified = allUsers.filter(u => u.type === 'verified').length;
+      const ppn = allUsers.filter(u => u.type === 'ppn').length;
+
+      // Stats
+      document.getElementById('totalUsers').textContent = total.toLocaleString();
+      document.getElementById('normalCount').textContent = normal.toLocaleString();
+      document.getElementById('verifiedCount').textContent = verified.toLocaleString();
+      document.getElementById('ppnCount').textContent = ppn.toLocaleString();
+
+      document.getElementById('normalPercent').textContent = total ? ((normal / total) * 100).toFixed(1) + '%' : '0%';
+      document.getElementById('verifiedPercent').textContent = total ? ((verified / total) * 100).toFixed(1) + '%' : '0%';
+      document.getElementById('ppnPercent').textContent = total ? ((ppn / total) * 100).toFixed(1) + '%' : '0%';
+
+      // Badges
+      document.getElementById('badge-all').textContent = total;
+      document.getElementById('badge-normal').textContent = normal;
+      document.getElementById('badge-verified').textContent = verified;
+      document.getElementById('badge-ppn').textContent = ppn;
+
+      updateCharts(normal, verified, ppn);
+      renderTable();
+    }
+
+    // ====================== CHARTS ======================
+    function updateCharts(normal, verified, ppn) {
+      const pieCtx = document.getElementById('pieChart').getContext('2d');
+      const barCtx = document.getElementById('barChart').getContext('2d');
+
+      if (pieChart) pieChart.destroy();
+      if (barChart) barChart.destroy();
+
+      pieChart = new Chart(pieCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Normal', 'Verified', 'PPN'],
+          datasets: [{
+            data: [normal, verified, ppn],
+            backgroundColor: ['#64748b', '#10b981', '#f59e0b'],
+            borderColor: '#1e293b',
+            borderWidth: 3,
+            hoverOffset: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#94a3b8', padding: 16, usePointStyle: true }
+            }
+          },
+          cutout: '65%'
+        }
+      });
+
+      barChart = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: ['Normal', 'Verified', 'PPN'],
+          datasets: [{
+            label: 'Users',
+            data: [normal, verified, ppn],
+            backgroundColor: [
+              'rgba(100, 116, 139, 0.8)',
+              'rgba(16, 185, 129, 0.8)',
+              'rgba(245, 158, 11, 0.8)'
+            ],
+            borderColor: ['#64748b', '#10b981', '#f59e0b'],
+            borderWidth: 1,
+            borderRadius: 8,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(148, 163, 184, 0.1)' },
+              ticks: { color: '#94a3b8', precision: 0 }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8' }
+            }
+          }
+        }
+      });
+    }
+
+    // ====================== TABLE ======================
+    function renderTable() {
+      let filtered = allUsers;
+
+      if (currentFilter !== 'all') {
+        filtered = filtered.filter(u => u.type === currentFilter);
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter(u =>
+          u.name.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q) ||
+          u.phone.toLowerCase().includes(q) ||
+          u.uid.toLowerCase().includes(q)
+        );
+      }
+
+      const tbody = document.getElementById('usersTableBody');
+      const empty = document.getElementById('tableEmpty');
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '';
+        empty.classList.remove('hidden');
+        document.getElementById('showingInfo').textContent = 'Showing 0 users';
+        return;
+      }
+
+      empty.classList.add('hidden');
+      document.getElementById('showingInfo').textContent = `Showing ${filtered.length} of ${allUsers.length} users`;
+
+      tbody.innerHTML = filtered.map((user, idx) => {
+        const typeBadge = {
+          normal: 'bg-slate-600/40 text-slate-300',
+          verified: 'bg-success/20 text-success',
+          ppn: 'bg-warning/20 text-warning'
+        }[user.type];
+
+        const typeIcon = {
+          normal: 'fa-user',
+          verified: 'fa-check-circle',
+          ppn: 'fa-crown'
+        }[user.type];
+
+        const typeLabel = user.type.charAt(0).toUpperCase() + user.type.slice(1);
+
+        let joined = '—';
+        if (user.createdAt) {
+          try {
+            const d = new Date(user.createdAt);
+            if (!isNaN(d)) joined = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+          } catch {}
+        }
+
+        const initial = (user.name || 'U').charAt(0).toUpperCase();
+
+        return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="px-5 py-4 text-slate-500">${idx + 1}</td>
+            <td class="px-5 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-sm font-semibold shrink-0">
+                  ${user.photo ? `<img src="${user.photo}" class="w-full h-full rounded-full object-cover" onerror="this.parentElement.innerHTML='${initial}'" />` : initial}
+                </div>
+                <div class="min-w-0">
+                  <p class="font-medium truncate max-w-[160px]">${escapeHtml(user.name)}</p>
+                  <p class="text-xs text-slate-500 truncate max-w-[160px]">${user.uid.slice(0, 12)}...</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-5 py-4">
+              <p class="truncate max-w-[180px]">${escapeHtml(user.email)}</p>
+              <p class="text-xs text-slate-500">${escapeHtml(user.phone)}</p>
+            </td>
+            <td class="px-5 py-4">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${typeBadge}">
+                <i class="fas ${typeIcon} text-[10px]"></i> ${typeLabel}
+              </span>
+            </td>
+            <td class="px-5 py-4">
+              <span class="inline-flex items-center gap-1.5 text-xs text-success">
+                <span class="w-1.5 h-1.5 rounded-full bg-success"></span> Active
+              </span>
+            </td>
+            <td class="px-5 py-4 text-slate-400">${joined}</td>
+            <td class="px-5 py-4 text-right">
+              <button onclick='viewUser(${JSON.stringify(user).replace(/'/g, "&#39;")})' 
+                      class="px-3 py-1.5 rounded-lg bg-slate-700/80 hover:bg-primary/80 text-xs font-medium transition">
+                <i class="fas fa-eye mr-1"></i> View
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ====================== HELPERS ======================
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    window.setFilter = function(type) {
+      currentFilter = type;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('bg-primary', 'text-white');
+        btn.classList.add('bg-slate-800', 'text-slate-300');
+      });
+      const active = document.getElementById('filter-' + type);
+      active.classList.remove('bg-slate-800', 'text-slate-300');
+      active.classList.add('bg-primary', 'text-white');
+      renderTable();
+    };
+
+    window.handleSearch = function() {
+      searchQuery = document.getElementById('searchInput').value;
+      renderTable();
+    };
+
+    window.refreshData = function() {
+      const icon = document.getElementById('refreshIcon');
+      icon.classList.add('fa-spin');
+      // onValue already live, just visual feedback
+      setTimeout(() => icon.classList.remove('fa-spin'), 800);
+    };
+
+    window.viewUser = function(user) {
+      const modal = document.getElementById('userModal');
+      const content = document.getElementById('modalContent');
+
+      const typeBadge = {
+        normal: 'bg-slate-600/40 text-slate-300',
+        verified: 'bg-success/20 text-success',
+        ppn: 'bg-warning/20 text-warning'
+      }[user.type];
+
+      content.innerHTML = `
+        <div class="flex items-center gap-4 mb-6">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-2xl font-bold">
+            ${(user.name || 'U').charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h4 class="text-xl font-semibold">${escapeHtml(user.name)}</h4>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium mt-1 ${typeBadge}">
+              ${user.type.toUpperCase()}
+            </span>
+          </div>
+        </div>
+        <div class="space-y-3 text-sm">
+          <div class="flex justify-between py-2 border-b border-slate-700/50">
+            <span class="text-slate-400">UID</span>
+            <span class="font-mono text-xs">${user.uid}</span>
+          </div>
+          <div class="flex justify-between py-2 border-b border-slate-700/50">
+            <span class="text-slate-400">Email</span>
+            <span>${escapeHtml(user.email)}</span>
+          </div>
+          <div class="flex justify-between py-2 border-b border-slate-700/50">
+            <span class="text-slate-400">Phone</span>
+            <span>${escapeHtml(user.phone)}</span>
+          </div>
+          <div class="flex justify-between py-2 border-b border-slate-700/50">
+            <span class="text-slate-400">Type</span>
+            <span class="capitalize font-medium">${user.type}</span>
+          </div>
+        </div>
+        <div class="mt-6">
+          <p class="text-xs text-slate-500 mb-2">Raw Data (JSON)</p>
+          <pre class="bg-slate-900/80 rounded-xl p-4 text-xs overflow-x-auto max-h-48 scrollbar-thin text-slate-400">${escapeHtml(JSON.stringify(user.raw, null, 2))}</pre>
+        </div>
+      `;
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    };
+
+    window.closeModal = function() {
+      const modal = document.getElementById('userModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    };
+
+    // Close modal on outside click
+    document.getElementById('userModal').addEventListener('click', (e) => {
+      if (e.target.id === 'userModal') closeModal();
+    });
+
+    // Init
+    initFirebase();
+  </script>
+</body>
+</html>
